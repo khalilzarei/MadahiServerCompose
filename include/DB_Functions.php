@@ -77,11 +77,44 @@ class DB_Functions
         $stmt->execute([$userId]);
     }
 
-    public function loginByMobile(string $mobile): array
+    /**
+     * ورود با شماره موبایل + رمز عبور.
+     * برای کاربران قدیمی که هنوز رمز ندارند (password خالی)،
+     * رمز پیش‌فرض = شماره موبایل در نظر گرفته می‌شود و در اولین
+     * ورود، کاربر باید رمز را تغییر بدهد (must_change_password = 1).
+     */
+    public function login(string $mobile, string $password): array
     {
         $user = $this->getUserByMobile($mobile);
         if ($user === null) {
             return ['error' => true, 'error_msg' => 'کاربری با این شماره وجود ندارد لطفا ثبت نام کنید.'];
+        }
+
+        $storedHash = (string)($user['password'] ?? '');
+
+        // ---------- اعتبارسنجی رمز ----------
+        // کاربران قدیمی: hash خالی یا hash شده‌ی خودِ شماره موبایل
+        // → هر دو یعنی رمز فعلی همان شماره موبایل است
+        $isDefaultPassword = false;
+        if ($storedHash === '') {
+            $isDefaultPassword = true;
+        } elseif (!password_verify($password, $storedHash)
+            && password_verify($mobile, $storedHash)) {
+            // رمز وارد شده با hash ذخیره‌شده مطابقت ندارد ولی
+            // hash ذخیره‌شده همان موبایل است → رمز هنوز پیش‌فرض است
+            $isDefaultPassword = true;
+        }
+
+        if ($isDefaultPassword) {
+            if ($password !== $mobile) {
+                return ['error' => true, 'error_msg' => 'رمز عبور اشتباه است. رمز پیش‌فرض، شماره موبایل شماست؛ پس از ورود آن را تغییر دهید.'];
+            }
+            $mustChangePassword = true;
+        } else {
+            if (!password_verify($password, $storedHash)) {
+                return ['error' => true, 'error_msg' => 'رمز عبور اشتباه است'];
+            }
+            $mustChangePassword = (int)($user['must_change_password'] ?? 0) === 1;
         }
 
         $token = $this->issueToken((int)$user['id']);
@@ -92,10 +125,73 @@ class DB_Functions
             'error_msg'  => 'شما با موفقیت وارد شدید.',
             'token'      => $token,
             'user'       => $this->sanitizeUser($user),
+            'must_change_password' => $mustChangePassword,
             'categories' => $this->getUserCategories((int)$user['id']),
             'favorites'  => $this->getUserFavorites((int)$user['id']),
             'contents'   => $this->getUserContents((int)$user['id']),
         ];
+    }
+
+    /**
+     * سازگاری با فراخوانی‌های قدیمی (بدون رمز) — مثل adminLogin.php
+     */
+    public function loginByMobile(string $mobile): array
+    {
+        return $this->login($mobile, $mobile);
+    }
+
+    /**
+     * تغییر رمز عبور کاربر جاری (با احراز هویت توکن)
+     * در صورت موفقیت، پرچم must_change_password هم صفر می‌شود.
+     */
+    public function changePassword(int $userId, string $currentPassword, string $newPassword): array
+    {
+        $user = null;
+        $stmt = $this->db->prepare('SELECT * FROM `users` WHERE id = ? LIMIT 1');
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch();
+        if ($row !== false) {
+            $user = $row;
+        }
+
+        if ($user === null) {
+            return ['error' => true, 'error_msg' => 'کاربر یافت نشد'];
+        }
+
+        $storedHash = (string)($user['password'] ?? '');
+        $mobile     = (string)($user['mobile'] ?? '');
+
+        // ---------- بررسی رمز فعلی ----------
+        // کاربران قدیمی با رمز پیش‌فرض (hash خالی یا hash موبایل)
+        $isDefaultPassword = false;
+        if ($storedHash === '') {
+            $isDefaultPassword = true;
+        } elseif (password_verify($mobile, $storedHash) && !password_verify($currentPassword, $storedHash)) {
+            $isDefaultPassword = true;
+        }
+
+        if ($isDefaultPassword) {
+            if ($currentPassword !== $mobile) {
+                return ['error' => true, 'error_msg' => 'رمز فعلی اشتباه است'];
+            }
+        } elseif (!password_verify($currentPassword, $storedHash)) {
+            return ['error' => true, 'error_msg' => 'رمز فعلی اشتباه است'];
+        }
+
+        // ---------- اعتبارسنجی رمز جدید ----------
+        if (mb_strlen($newPassword) < 6) {
+            return ['error' => true, 'error_msg' => 'رمز جدید باید حداقل ۶ کاراکتر باشد'];
+        }
+        if ($newPassword === $mobile) {
+            return ['error' => true, 'error_msg' => 'رمز جدید نباید شماره موبایل شما باشد'];
+        }
+
+        $stmt = $this->db->prepare(
+            'UPDATE `users` SET password = ?, must_change_password = 0, update_at = NOW() WHERE id = ?'
+        );
+        $stmt->execute([password_hash($newPassword, PASSWORD_DEFAULT), $userId]);
+
+        return ['error' => false, 'error_msg' => 'رمز عبور با موفقیت تغییر کرد'];
     }
 
     public function register(string $mobile, string $fullName): array
@@ -104,17 +200,15 @@ class DB_Functions
             return ['error' => true, 'error_msg' => 'این کاربر قبلا ثبت نام کرده است'];
         }
 
-        // فعلاً ورود با رمز نداریم؛ یک رمز تصادفی هش‌شده ذخیره می‌شود
-        // (زمانی که OTP یا رمز اضافه شد، همین فیلد استفاده می‌شود)
-        $randomPassword = bin2hex(random_bytes(8));
-
+        // ورود با رمز: رمز پیش‌فرض ثبت‌نام = خود شماره موبایل؛
+        // کاربر در اولین ورود (راست بعد از ثبت‌نام) باید آن را تغییر بدهد.
         $stmt = $this->db->prepare(
-            'INSERT INTO `users` (`full_name`, `password`, `email`, `mobile`, `create_at`, `update_at`)
-             VALUES (?, ?, \'\', ?, NOW(), NOW())'
+            'INSERT INTO `users` (`full_name`, `password`, `email`, `mobile`, `must_change_password`, `create_at`, `update_at`)
+             VALUES (?, ?, ?, ?, 1, NOW(), NOW())'
         );
 
         try {
-            $stmt->execute([$fullName, password_hash($randomPassword, PASSWORD_DEFAULT), $mobile]);
+            $stmt->execute([$fullName, password_hash($mobile, PASSWORD_DEFAULT), '', $mobile]);
         } catch (PDOException) {
             // خطای ایندکس یکتا (ثبت‌نام همزمان با همان شماره)
             return ['error' => true, 'error_msg' => 'این کاربر قبلا ثبت نام کرده است'];

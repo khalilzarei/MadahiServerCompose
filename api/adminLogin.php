@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * ورود پنل مدیریت (بدون رمز — سازگار با فراخوانی قدیمی loginByMobile)
+ * فقط حساب‌های is_admin می‌توانند وارد شوند.
+ */
 require_once __DIR__ . '/../include/bootstrap.php';
 require_method('POST');
 
