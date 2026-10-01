@@ -11,9 +11,9 @@
 
 const DB_HOST = 'localhost';
 const DB_PORT = 3306;
-const DB_NAME = 'madahino_madahi';
-const DB_USER = 'madahino_user';
-const DB_PASS = '@65877856.com';
+const DB_NAME = '';
+const DB_USER = '';
+const DB_PASS = '';
 
 
 // آدرس پایه اپ (بدون اسلش انتهایی)
