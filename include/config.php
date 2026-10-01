@@ -31,11 +31,11 @@ const APP_ENV = 'production';
 // ۴) package name دقیقاً همان applicationId اپ (com.khz.madahi)
 // ۵) productId = شناسه محصول «نسخه پرو» که در پنل پرداخت بازار تعریف می‌کنید
 // ============================================================
-const BAZAAR_CLIENT_ID       = 'NptzLl8aS0WqztfyHKPRgNDWFtnrnjgl0eW0zSkE';
-const BAZAAR_CLIENT_SECRET   = 'lg3uPCoxm6zn887fPC2csSCD7U1keXhzSLN0SumlF3t3bnmuOphjs5hari6G';
-const BAZAAR_REFRESH_TOKEN   = 'znMOOawM0iYu12e18YG6wOQpkGQ4Iy';
-const BAZAAR_PACKAGE_NAME    = 'com.khz.madahi';
-const BAZAAR_PRO_PRODUCT_ID  = 'pro_version';  // SKU محصول نسخه پرو در پنل بازار
+const BAZAAR_CLIENT_ID       = '';
+const BAZAAR_CLIENT_SECRET   = '';
+const BAZAAR_REFRESH_TOKEN   = '';
+const BAZAAR_PACKAGE_NAME    = '';
+const BAZAAR_PRO_PRODUCT_ID  = '';  // SKU محصول نسخه پرو در پنل بازار
 
 
 // ============================================================
@@ -49,8 +49,8 @@ const BAZAAR_PRO_PRODUCT_ID  = 'pro_version';  // SKU محصول نسخه پرو
 //    (نکته: StartPay سنب‌باکس: https://sandbox.zarinpal.com/pg/StartPay/)
 // ============================================================
 // const ZARINPAL_API_BASE        = 'https://api.zarinpal.com';   // یا sandbox
-const ZARINPAL_API_BASE  = 'https://sandbox.zarinpal.com'; 
-const ZARINPAL_MERCHANT_ID     = 'eaa46b01-819e-42ef-8a67-ba2bb7f69a32';                            // ۳۶ کاراکتر
-const ZARINPAL_PRO_PRICE_RIAL  = 5000000;                       // ۵۰۰ هزار تومان
-const ZARINPAL_WEBHOOK_URL     = 'https://madahinote.ir/new_api/api/premiumWebhookZarinpal.php';
-const ZARINPAL_REFERRER_URL    = 'https://madahinote.ir';        // کاربر بعد از پرداخت اینجا برمی‌گردد
+const ZARINPAL_API_BASE  = ''; 
+const ZARINPAL_MERCHANT_ID     = '';                            // ۳۶ کاراکتر
+const ZARINPAL_PRO_PRICE_RIAL  = 500000;                       // ۵۰۰ هزار تومان
+const ZARINPAL_WEBHOOK_URL     = '';
+const ZARINPAL_REFERRER_URL    = '';        // کاربر بعد از پرداخت اینجا برمی‌گردد
